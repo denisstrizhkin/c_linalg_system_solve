@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <math.h>
 
@@ -22,7 +23,15 @@ die(char *fmt, ...)
 	va_end(ap);
 	fputc('\n', stderr);
 
-	exit(1);
+	exit(0);
+}
+
+void
+die_dim_match(char *func_name, const mat *A, const mat *B)
+{
+	if (A->m != B->m || A->n != B->n)
+		die("%s: dims do not match (%u x %u) and (%u x %u)",
+		    func_name, A->m, A->n, B->m, B->n);
 }
 
 mat *
@@ -42,6 +51,16 @@ mat_free(mat *M)
 {
 	free(M->data);
 	free(M);
+}
+
+mat *
+mat_copy(const mat *M)
+{
+	mat *O = mat_new(M->m, M->n);
+
+	memcpy(O->data, M->data, (sizeof *M->data) * M->m * M->n);
+
+	return O;
 }
 
 double
@@ -89,7 +108,7 @@ mat_print(const mat *M)
 {
 	if (M->m > 10 || M->n > 10)
 		printf("mat_print: matrix is to big to be printed\n");
-	printf("mat (%u x %u)\n", M->m, M->n);
+	printf("mat (%u x %u) %u %u\n", M->m, M->n, M, M->data);
 	unsigned i, j;
 	for (i = 0; i < M->m; i++) {
 		for (j = 0; j < M->n; j++) {
@@ -189,28 +208,23 @@ mat_scale_o(const mat *M, double a)
 void
 mat_add(mat *A, const mat *B)
 {
-	if (A->m != B->m || A->n != B->n)
-		die("mat_add: dims do not match (%u x %u) and (%u x %u)",
-		    A->m, A->n, B->m, B->n);
+	die_dim_match("mat_add", A, B);
 
-	unsigned pos;
+	double *pa = A->data;
+	double *pb = B->data;
+	double *pe = &A->data[A->m * A->n];
 
-	for (pos = 0; pos < A->m * A->n; pos++)
-		A->data[pos] += B->data[pos];
+	for (; pa != pe; pa++, pb++)
+		*pa += *pb;
 }
 
 mat *
 mat_add_o(const mat *A, const mat *B)
 {
-	if (A->m != B->m || A->n != B->n)
-		die("mat_add: dims do not match (%u x %u) and (%u x %u)",
-		    A->m, A->n, B->m, B->n);
+	die_dim_match("mat_add_o", A, B);
 
-	mat *O = mat_new(A->m, A->n);
-	unsigned pos;
-
-	for (pos = 0; pos < A->m * A->n; pos++)
-		O->data[pos] = A->data[pos] + B->data[pos];
+	mat *O = mat_copy(A);
+	mat_add(O, B);
 
 	return O;
 }
@@ -218,9 +232,6 @@ mat_add_o(const mat *A, const mat *B)
 double
 mat_norm1(const mat *M)
 {
-	if (M->n != M->m)
-		die("mat_norm1: (%u x %u) matrix not square", M->m, M->n);
-
 	unsigned i, j;
 	double sum, norm = 0.0;
 
@@ -233,4 +244,49 @@ mat_norm1(const mat *M)
 	}
 
 	return norm;
+}
+
+void
+mat_sub(mat *A, const mat *B)
+{
+	die_dim_match("mat_sub", A, B);
+
+	double *pa = A->data;
+	double *pb = B->data;
+	double *pe = &A->data[A->m * A->n];
+
+	for (; pa != pe; pa++, pb++)
+		*pa -= *pb;
+}
+
+mat *
+mat_sub_o(const mat *A, const mat *B)
+{
+	die_dim_match("mat_sub_o", A, B);
+
+	mat *O = mat_copy(A);
+	mat_sub(O, B);
+
+	return O;
+}
+
+mat *
+mat_dot(const mat *A, const mat *B)
+{
+	if(A->n != B->m)
+		die("mat_dot: (%lu x %lu) & (%lu x %lu)", A->m, A->n, B->m, B->n);
+
+	mat *O = mat_new(A->m, B->n);
+	unsigned i, j, k;
+	for (i = 0; i < O->m; i++) {
+		for (j = 0; j < O->n; j++) {
+			O->data[i * O->n + j] = 0.0;
+			for (k = 0; k < A->n; k++) {
+				O->data[i * O->n + j] += A->data[i * A->n + k] *
+				                         B->data[k * B->n + j];
+			}
+		}
+	}
+	
+	return O;
 }
