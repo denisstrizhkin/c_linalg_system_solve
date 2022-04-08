@@ -184,6 +184,25 @@ mat_rnd(unsigned m, unsigned n, unsigned dens)
 	return M;
 }
 
+mat *
+mat_D_rnd(unsigned n, unsigned dens)
+{
+	if (dens > 100)
+		die("mat_ltrig_rnd: density is number between 0 and 100");
+	mat *M = mat_zeros(n, n);
+	unsigned i;
+	unsigned tmp;
+
+	srand(time(0));
+	for (i = 0; i < M->m; i++) {
+		tmp = rand() % (101);
+		if (tmp <= dens)
+			mat_set(M, i, i, (double) rand() / RAND_MAX);
+	}
+
+	return M;
+}
+
 void
 mat_scale(mat *M, double a)
 {
@@ -289,4 +308,93 @@ mat_dot(const mat *A, const mat *B)
 	}
 	
 	return O;
+}
+
+mat *
+mat_get_L(const mat *M)
+{
+	mat *O = mat_zeros(M->m, M->n);
+	unsigned i, j;
+
+	for (i = 0; i < O->m; i++) {
+		for (j = 0; j < i; j++) {
+			mat_set(O, i, j, mat_get(M, i, j));
+		}
+	}	
+
+	return O;
+}
+
+mat *
+mat_get_U(const mat *M)
+{
+	mat *O = mat_zeros(M->m, M->n);
+	unsigned i, j;
+
+	for (i = 0; i < O->m; i++) {
+		for (j = i + 1; j < O->n; j++) {
+			mat_set(O, i, j, mat_get(M, i, j));
+		}
+	}	
+
+	return O;
+}
+
+mat *
+mat_get_Dr(const mat *M)
+{
+	mat *O = mat_zeros(M->m, M->n);
+	unsigned i, j;
+
+	for (i = 0, j = 0; i < O->m && j < O->n; i++, j++) {
+		mat_set(O, i, j, 1.0 / mat_get(M, i, j));
+	}	
+
+	return O;
+}
+
+mat *
+mat_get_D(const mat *M)
+{
+	mat *O = mat_zeros(M->m, M->n);
+	unsigned i, j;
+
+	for (i = 0, j = 0; i < O->m && j < O->n; i++, j++) {
+		mat_set(O, i, j, mat_get(M, i, j));
+	}	
+
+	return O;
+}
+
+int
+mat_ltrig_rev(mat *M)
+{
+	unsigned n = M->m;
+	double *L = M->data;
+
+
+
+   unsigned i, j, k;
+   double *p_i, *p_j, *p_k;
+   double sum;
+
+//         Invert the diagonal elements of the lower triangular matrix L.
+
+   for (k = 0, p_k = L; k < n; p_k += (n + 1), k++) {
+      if (*p_k == 0.0) return -1;
+      else *p_k = 1.0 / *p_k;
+   }
+
+//         Invert the remaining lower triangular matrix L row by row.
+
+   for (i = 1, p_i = L + n; i < n; i++, p_i += n) {
+      for (j = 0, p_j = L; j < i; p_j += n, j++) {
+         sum = 0.0;
+         for (k = j, p_k = p_j; k < i; k++, p_k += n)
+            sum += *(p_i + k) * *(p_k + j);
+         *(p_i + j) = - *(p_i + i) * sum;
+      }
+   }
+  
+   return 0;
 }
